@@ -2,18 +2,52 @@
 using System.Text.Json;
 using CodigoTrabajo.Core;
 
-// Uso: dotnet run --project src/CodigoTrabajo.Ingest -- data/raw/codigo.txt data/articles.json
-var input = args.ElementAtOrDefault(0) ?? "data/raw/codigo.txt";
-var output = args.ElementAtOrDefault(1) ?? "data/articles.json";
+// parse  <texto.txt> <articles.json>   parte el texto de pdftotext en artículos
+// embed  <articles.json> <embeddings.bin>   pide los embeddings a Gemini (necesita GEMINI_API_KEY)
+var command = args.ElementAtOrDefault(0) ?? "parse";
 
-var articles = CodeParser.Parse(File.ReadAllText(input));
-var json = JsonSerializer.Serialize(articles, new JsonSerializerOptions
+switch (command)
 {
-    WriteIndented = true,
-    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-});
-File.WriteAllText(output, json);
+    case "parse":
+        Parse(args.ElementAtOrDefault(1) ?? "data/raw/codigo.txt", args.ElementAtOrDefault(2) ?? "data/articles.json");
+        break;
+    case "embed":
+        await EmbedAsync(args.ElementAtOrDefault(1) ?? "data/articles.json", args.ElementAtOrDefault(2) ?? "data/embeddings.bin");
+        break;
+    default:
+        Console.Error.WriteLine("Comandos: parse, embed");
+        return 1;
+}
+return 0;
 
-var numbered = articles.Where(a => a.Number > 0).ToList();
-Console.WriteLine($"{articles.Count - numbered.Count} principios, {numbered.Count} artículos " +
-    $"(del {numbered[0].Number} al {numbered[^1].Number}), {articles.Sum(a => a.Notes.Count)} notas");
+static void Parse(string input, string output)
+{
+    var articles = CodeParser.Parse(File.ReadAllText(input));
+    var json = JsonSerializer.Serialize(articles, new JsonSerializerOptions
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    });
+    File.WriteAllText(output, json);
+
+    var numbered = articles.Where(a => a.Number > 0).ToList();
+    Console.WriteLine($"{articles.Count - numbered.Count} principios, {numbered.Count} artículos " +
+        $"(del {numbered[0].Number} al {numbered[^1].Number}), {articles.Sum(a => a.Notes.Count)} notas");
+}
+
+static async Task EmbedAsync(string input, string output)
+{
+    var key = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+        ?? throw new InvalidOperationException("Falta GEMINI_API_KEY.");
+    var articles = JsonSerializer.Deserialize<List<Article>>(File.ReadAllText(input))!;
+    using var http = new HttpClient();
+    var vectors = await new GeminiEmbedder(http, key).EmbedDocumentsAsync(articles.Select(DocumentText).ToList());
+    VectorIndex.Save(vectors, output);
+    Console.WriteLine($"{vectors.Length} vectores de {vectors[0].Length} dimensiones en {output}");
+}
+
+static string DocumentText(Article a)
+{
+    var text = $"{a.Label}. {a.Context}. {a.Text}";
+    return text.Length <= 6000 ? text : text[..6000];
+}

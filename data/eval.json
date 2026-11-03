@@ -1,0 +1,23 @@
+[
+  { "question": "¿Cuántos días de vacaciones me corresponden después de un año de trabajo?", "expected": [177] },
+  { "question": "¿Qué es el salario de Navidad y cuándo se paga?", "expected": [219, 220] },
+  { "question": "¿Cuánto tiempo de preaviso debe dar el empleador para un desahucio?", "expected": [76] },
+  { "question": "¿Qué es el auxilio de cesantía?", "expected": [80, 81, 85] },
+  { "question": "¿Cuáles son las causas justas para despedir a un trabajador?", "expected": [88] },
+  { "question": "¿En cuánto tiempo debe comunicarse un despido a la autoridad de trabajo?", "expected": [91] },
+  { "question": "¿Cuánto dura la licencia por maternidad de una trabajadora embarazada?", "expected": [236] },
+  { "question": "¿Cuál es la jornada máxima de trabajo?", "expected": [147] },
+  { "question": "¿Cómo se pagan las horas extras?", "expected": [203] },
+  { "question": "¿Se puede despedir a una mujer embarazada?", "expected": [233] },
+  { "question": "¿Qué es la dimisión del trabajador?", "expected": [96] },
+  { "question": "¿Cuántos días de descanso semanal tiene el trabajador?", "expected": [163] },
+  { "question": "¿Qué porcentaje de las utilidades corresponde a los trabajadores?", "expected": [223] },
+  { "question": "¿Qué es un contrato por tiempo indefinido?", "expected": [25, 26, 34] },
+  { "question": "¿Qué es un sindicato?", "expected": [317] },
+  { "question": "¿Cuándo es ilegal una huelga?", "expected": [406] },
+  { "question": "¿Se puede descontar dinero del salario del trabajador?", "expected": [201] },
+  { "question": "¿Cuál es el plazo para reclamar el pago de las prestaciones por un despido?", "expected": [702] },
+  { "question": "¿Cuántos días de licencia por matrimonio o fallecimiento de un familiar?", "expected": [54] },
+  { "question": "¿Qué es el salario mínimo?", "expected": [213] },
+  { "question": "¿Qué es un accidente de trabajo?", "expected": [726] }
+]
