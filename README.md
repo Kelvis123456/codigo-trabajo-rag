@@ -14,6 +14,8 @@ Lo hice para aprender a armar un RAG de punta a punta en .NET con algo que se pu
 4. El modelo recibe solo esos 5 artículos y la instrucción de citar cada afirmación como `[Art. 76]`.
 5. Se comprueba que cada número citado esté entre los 5 que se le dieron. Lo que no esté se muestra como "sin verificar".
 
+Hay además una demo estática en `docs/` (se publica con GitHub Pages, sin servidor ni modelo): el mismo BM25 reescrito en JS, que busca en el navegador y no redacta respuestas. `tests/js/search.test.mjs` comprueba que da exactamente los mismos cinco primeros que la versión de C# en las 21 preguntas.
+
 Sin `GEMINI_API_KEY` la página arranca igual, la búsqueda cae a BM25 (palabras) y `/api/ask` responde 503.
 
 ## Qué tan bien encuentra los artículos
