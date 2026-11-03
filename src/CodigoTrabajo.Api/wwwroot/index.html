@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Código de Trabajo RD, preguntas con citas</title>
+  <meta name="description" content="Pregunta sobre el Código de Trabajo dominicano (Ley 16-92) y recibe la respuesta con los artículos citados.">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f3ee; --surface: #fffdf9; --text: #1d1b18; --muted: #5f5a52;
+      --line: #d9d3c7; --accent: #1f4d3a; --accent-text: #fff; --warn-bg: #fbeed4; --warn: #6b4a00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14130f; --surface: #1c1a16; --text: #ece8df; --muted: #a8a195;
+        --line: #35312a; --accent: #7fc4a0; --accent-text: #10170f; --warn-bg: #2b2412; --warn: #e9c36b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, "Segoe UI", sans-serif; }
+    main { max-width: 44rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+    h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 .5rem; text-wrap: balance; }
+    h2 { font-size: 1.05rem; margin: 2rem 0 .75rem; }
+    p { margin: 0 0 1rem; }
+    .lead, .note { color: var(--muted); }
+    .note { font-size: .875rem; }
+    main > .note { margin-top: 2.5rem; }
+    a { color: var(--accent); }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1.5rem 0 .5rem; }
+    label { flex-basis: 100%; font-weight: 600; font-size: .9rem; }
+    input { flex: 1 1 14rem; font: inherit; padding: .65rem .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: inherit; }
+    button { font: inherit; font-weight: 600; padding: .65rem 1.1rem; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+    button:disabled { opacity: .6; cursor: progress; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .examples { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+    .examples button { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 400; font-size: .85rem; padding: .3rem .7rem; }
+    .answer { white-space: pre-wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+    .warn { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: .6rem .8rem; font-size: .9rem; margin-top: .75rem; }
+    .error { color: #b3261e; }
+    @media (prefers-color-scheme: dark) { .error { color: #f2b8b5; } }
+    article { border-top: 1px solid var(--line); padding: .9rem 0; }
+    article h3 { font-size: .95rem; margin: 0 0 .15rem; }
+    article .ctx { color: var(--muted); font-size: .8rem; margin: 0 0 .4rem; }
+    article p:last-child { margin: 0; font-size: .95rem; }
+    details summary { cursor: pointer; }
+    @media (prefers-reduced-motion: no-preference) { button { transition: opacity .15s; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Código de Trabajo de la República Dominicana</h1>
+  <p class="lead">Pregunta en tus palabras. La respuesta sale solo de los artículos de la Ley 16-92 que se recuperan para tu pregunta, y cada afirmación trae su cita.</p>
+
+  <form id="form">
+    <label for="q">Tu pregunta</label>
+    <input id="q" name="q" type="text" maxlength="300" required autocomplete="off" placeholder="¿Cuántos días de vacaciones me tocan después de un año?">
+    <button id="send" type="submit">Preguntar</button>
+  </form>
+  <ul class="examples" aria-label="Preguntas de ejemplo">
+    <li><button type="button">¿Cuánto preaviso debe dar el empleador en un desahucio?</button></li>
+    <li><button type="button">¿Se puede despedir a una mujer embarazada?</button></li>
+    <li><button type="button">¿Cómo se pagan las horas extras?</button></li>
+  </ul>
+
+  <div id="out" aria-live="polite"></div>
+
+  <p class="note">Esto resume el texto del Código tal como está publicado por el Ministerio de Trabajo; no es asesoría legal y puede no reflejar reformas recientes. Para un caso concreto, consulta a un abogado laboralista. <a href="https://github.com/Kelvis123456/codigo-trabajo-rag">Código fuente</a>.</p>
+</main>
+<script>
+  const form = document.getElementById('form'), input = document.getElementById('q'),
+        send = document.getElementById('send'), out = document.getElementById('out');
+
+  const el = (tag, props = {}, ...kids) => {
+    const n = Object.assign(document.createElement(tag), props);
+    n.append(...kids);
+    return n;
+  };
+
+  function articleCard(a) {
+    const body = el('div');
+    a.text.split('\n').forEach(t => body.append(el('p', {}, t)));
+    return el('article', {}, el('h3', {}, a.label), el('p', { className: 'ctx' }, a.context), body);
+  }
+
+  function render(data) {
+    out.replaceChildren(el('h2', {}, 'Respuesta'), el('div', { className: 'answer' }, data.answer));
+    if (data.unverifiedCitations.length)
+      out.append(el('p', { className: 'warn' },
+        `El modelo citó ${data.unverifiedCitations.map(n => 'Art. ' + n).join(', ')}, que no estaba entre los artículos recuperados. No lo tomes como fuente.`));
+    const cited = data.cited.length ? data.cited : [];
+    out.append(el('h2', {}, cited.length ? 'Artículos citados' : 'Sin citas en la respuesta'));
+    cited.forEach(a => out.append(articleCard(a)));
+    const rest = data.retrieved.filter(r => !cited.some(c => c.number === r.number));
+    if (rest.length) {
+      const d = el('details', {}, el('summary', {}, `Otros artículos que se consultaron (${rest.length})`));
+      rest.forEach(a => d.append(articleCard(a)));
+      out.append(d);
+    }
+  }
+
+  async function ask(question) {
+    send.disabled = true;
+    out.replaceChildren(el('p', { className: 'note' }, 'Buscando en el Código…'));
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (res.status === 429 ? 'Demasiadas preguntas seguidas. Espera un minuto.' : 'Algo falló.'));
+      render(data);
+    } catch (e) {
+      out.replaceChildren(el('p', { className: 'error', role: 'alert' }, e.message || 'No se pudo conectar.'));
+    } finally {
+      send.disabled = false;
+    }
+  }
+
+  form.addEventListener('submit', e => { e.preventDefault(); if (input.value.trim()) ask(input.value.trim()); });
+  document.querySelectorAll('.examples button').forEach(b =>
+    b.addEventListener('click', () => { input.value = b.textContent; ask(b.textContent); }));
+</script>
+</body>
+</html>
