@@ -71,3 +71,29 @@ public class ApiTests : IClassFixture<ApiTests.NoKeyFactory>
         Assert.Equal(HttpStatusCode.ServiceUnavailable, res.StatusCode);
     }
 }
+
+/// <summary>/api/search también gasta cuota de Gemini cuando hay clave, así que tiene su propio límite por IP.</summary>
+public class SearchRateLimitTests : IClassFixture<SearchRateLimitTests.TightFactory>
+{
+    public sealed class TightFactory : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+        {
+            builder.UseSetting("Gemini:ApiKey", "");
+            builder.UseSetting("RateLimit:SearchPerMinute", "3");
+        }
+    }
+
+    private readonly HttpClient _client;
+
+    public SearchRateLimitTests(TightFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Pasado_el_limite_la_busqueda_responde_429()
+    {
+        var codes = new List<HttpStatusCode>();
+        for (var i = 0; i < 5; i++) codes.Add((await _client.GetAsync("/api/search?q=vacaciones")).StatusCode);
+
+        Assert.Equal([HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests, HttpStatusCode.TooManyRequests], codes);
+    }
+}

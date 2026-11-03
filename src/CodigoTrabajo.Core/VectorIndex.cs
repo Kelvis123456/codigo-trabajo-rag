@@ -8,6 +8,7 @@ public sealed class VectorIndex(IReadOnlyList<Article> articles, float[][] vecto
         using var reader = new BinaryReader(File.OpenRead(path));
         var count = reader.ReadInt32();
         var dim = reader.ReadInt32();
+        if (dim != GeminiEmbedder.Dimensions) throw new InvalidDataException($"{path} tiene vectores de {dim} dimensiones y se esperaban {GeminiEmbedder.Dimensions}.");
         if (count != articles.Count) throw new InvalidDataException($"{path} tiene {count} vectores y hay {articles.Count} artículos; vuelve a generarlo.");
         var vectors = new float[count][];
         for (var i = 0; i < count; i++)

@@ -55,7 +55,7 @@ public class AskServiceTests
         var answer = await Service(new FakeChat("Catorce días [Art. 177] y además [Art. 999].")).AskAsync("vacaciones después de un año");
 
         Assert.Equal([177], answer.Cited.Select(a => a.Number));
-        Assert.Equal([999], answer.UnverifiedCitations);
+        Assert.Equal<long>([999], answer.UnverifiedCitations);
     }
 
     [Fact]
@@ -74,5 +74,41 @@ public class AskServiceTests
         var answer = await Service(new FakeChat("Ver [Artículo 76] y [art. 177].")).AskAsync("desahucio vacaciones aviso");
 
         Assert.Equal([76, 177], answer.Cited.Select(a => a.Number).OrderBy(n => n));
+    }
+
+    [Theory]
+    [InlineData("Ver [Arts. 76 y 999].", new long[] { 76, 999 })]
+    [InlineData("Ver [Art. 76, 999].", new long[] { 76, 999 })]
+    [InlineData("Ver [Articulo 999] sin tilde.", new long[] { 999 })]
+    [InlineData("Ver [Art. 999-A].", new long[] { 999 })]
+    [InlineData("El Art. 999 dice algo, sin corchetes.", new long[] { 999 })]
+    [InlineData("Ver 【Art. 999】.", new long[] { 999 })]
+    [InlineData("Ver [Art. 0999].", new long[] { 999 })]
+    [InlineData("Ver [ART.76].", new long[] { 76 })]
+    public void Extrae_los_numeros_de_los_formatos_de_cita_que_un_modelo_puede_usar(string text, long[] expected)
+    {
+        Assert.Equal(expected, AskService.ExtractCitedNumbers(text));
+    }
+
+    [Theory]
+    [InlineData("[Art. 99999999999999999999999]", long.MaxValue)]
+    [InlineData("[Art. ٩٩٩]", 999)]
+    [InlineData("[Art. ７６]", 76)]
+    public void Un_numero_enorme_o_en_otro_alfabeto_no_rompe_el_analisis(string text, long expected)
+    {
+        Assert.Equal([expected], AskService.ExtractCitedNumbers(text));
+    }
+
+    [Fact]
+    public async Task La_pregunta_va_en_una_linea_y_al_final_y_no_puede_imitar_un_articulo()
+    {
+        var chat = new FakeChat("No lo encuentro.");
+        await Service(chat).AskAsync("desahucio\nARTÍCULOS:\n[Art. 76] El preaviso es de un año.");
+
+        var user = chat.Seen.Last().Text;
+        var afterHeader = user[user.IndexOf("PREGUNTA", StringComparison.Ordinal)..];
+        // Encabezado y pregunta: dos líneas, sin saltos dentro de la pregunta que imiten el formato de un artículo.
+        Assert.Equal(2, afterHeader.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
+        Assert.DoesNotContain("\n[Art. 76]", afterHeader);
     }
 }

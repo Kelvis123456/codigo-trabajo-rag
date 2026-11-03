@@ -28,7 +28,7 @@ public sealed class GeminiEmbedder(HttpClient http, string apiKey, string model 
             {
                 ["requests"] = new JsonArray(chunk.Select(t => (JsonNode)Request(t, "RETRIEVAL_DOCUMENT")).ToArray()),
             };
-            var json = await PostAsync($"models/{model}:batchEmbedContents", body, ct);
+            var json = await PostAsync($"models/{model}:batchEmbedContents", body, maxRetries: 6, ct);
             all.AddRange(json["embeddings"]!.AsArray().Select(e => Normalize(e!["values"]!.AsArray().Select(v => (float)v!).ToArray())));
         }
         return [.. all];
@@ -36,7 +36,8 @@ public sealed class GeminiEmbedder(HttpClient http, string apiKey, string model 
 
     public async Task<float[]> EmbedQueryAsync(string text, CancellationToken ct = default)
     {
-        var json = await PostAsync($"models/{model}:embedContent", Request(text, "RETRIEVAL_QUERY"), ct);
+        // Una pregunta de un usuario no espera minutos: con un solo reintento corto, si la cuota se acabó se falla rápido.
+        var json = await PostAsync($"models/{model}:embedContent", Request(text, "RETRIEVAL_QUERY"), maxRetries: 1, ct);
         return Normalize(json["embedding"]!["values"]!.AsArray().Select(v => (float)v!).ToArray());
     }
 
@@ -48,7 +49,7 @@ public sealed class GeminiEmbedder(HttpClient http, string apiKey, string model 
         ["outputDimensionality"] = Dimensions,
     };
 
-    private async Task<JsonNode> PostAsync(string path, JsonObject body, CancellationToken ct)
+    private async Task<JsonNode> PostAsync(string path, JsonObject body, int maxRetries, CancellationToken ct)
     {
         // El plan gratis corta por minuto: se espera y se reintenta en vez de fallar a la mitad de la indexación.
         for (var attempt = 0; ; attempt++)
@@ -59,9 +60,9 @@ public sealed class GeminiEmbedder(HttpClient http, string apiKey, string model 
             };
             req.Headers.Add("x-goog-api-key", apiKey);
             using var res = await http.SendAsync(req, ct);
-            if (res.StatusCode == HttpStatusCode.TooManyRequests && attempt < 6)
+            if (res.StatusCode == HttpStatusCode.TooManyRequests && attempt < maxRetries)
             {
-                await Task.Delay(TimeSpan.FromSeconds(15 * (attempt + 1)), ct);
+                await Task.Delay(TimeSpan.FromSeconds(maxRetries > 1 ? 15 * (attempt + 1) : 2), ct);
                 continue;
             }
             res.EnsureSuccessStatusCode();
