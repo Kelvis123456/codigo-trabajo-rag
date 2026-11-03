@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodigoTrabajo.Api/CodigoTrabajo.Api.csproj" />
+    <Project Path="src/CodigoTrabajo.Core/CodigoTrabajo.Core.csproj" />
+    <Project Path="src/CodigoTrabajo.Ingest/CodigoTrabajo.Ingest.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodigoTrabajo.Tests/CodigoTrabajo.Tests.csproj" />
+  </Folder>
+</Solution>
