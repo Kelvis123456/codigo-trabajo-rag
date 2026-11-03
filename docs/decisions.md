@@ -41,3 +41,19 @@ El modelo va por `IChatClient` de Microsoft.Extensions.AI, igual que en AgendaBo
 ## 2026-11-03 · Los vectores van en el repo
 
 `data/embeddings.bin` pesa 2.3 MB y se genera con la clave de quien lo corra. Lo subí para que clonar y ejecutar no cueste cuota ni exija clave para la búsqueda. Si cambia el parser, hay que regenerarlo; `VectorIndex.Load` falla con un mensaje claro si el número de vectores no coincide con el de artículos.
+
+## 2026-11-03 · Lo que dejó una revisión adversarial
+
+Una revisión de solo lectura encontró fallos reales que arreglé:
+- `/api/search` no tenía límite y, con clave, cada búsqueda embebe la pregunta: se podía agotar la cuota con peticiones GET en bucle, y con la cuota agotada cada petición esperaba unos 5 minutos por los reintentos. Ahora tiene su propio límite (30 por minuto), el embedding de una pregunta reintenta una sola vez y espera 2 segundos, y los cuerpos tienen un tope de 4 KB.
+- La comprobación de citas se saltaba con `[Arts. 76 y 999]`, `[Art. 76, 999]`, `[Articulo 999]` sin tilde, `Art. 999` sin corchetes o corchetes de otro alfabeto, y `[Art. 99999999999]` o dígitos como `٩٩٩` hacían lanzar una excepción y devolvían un 500. Ahora se extrae cualquier mención de artículo, con o sin corchetes, y los dígitos de otros alfabetos se pasan a ASCII antes de analizar.
+- La pregunta del usuario se pegaba sin delimitar y antes de los artículos, así que una pregunta con saltos de línea podía imitar una línea de artículo real. Ahora va al final, en una sola línea y bajo un encabezado que el sistema declara como texto no confiable.
+- El comando `parse` no comprobaba que salieran los artículos 1 a 738 seguidos, y el CI no ejecutaba el test de paridad de JS cuando solo cambiaba `docs/`.
+- Dependabot no cubría NuGet, el límite por IP en IPv6 daba un cupo por cada dirección de un /64, y los vectores se leían sin comprobar las dimensiones.
+
+**No lo arreglé:**
+- La comprobación de citas sigue mirando el número, no el contenido. Si el modelo cita `[Art. 76]` pero resume mal, o una pregunta lo convence de que diga algo falso citando un artículo recuperado, la cita sale como comprobada. Reducí el riesgo con el delimitado, no lo eliminé.
+- El parser sigue dependiendo de la secuencia: un encabezado de artículo con un formato nuevo se pegaría al anterior. Ahora `parse` falla en voz alta en vez de escribir datos rotos, pero no sabe leer formatos que no conoce.
+- Detrás de un proxy todos los usuarios compartirían un solo cupo, porque no hay `UseForwardedHeaders`. No está desplegado.
+- La versión de JS y la de C# difieren con caracteres raros (`x²`, matemáticos en negrita, ligaduras) porque `char.IsLetterOrDigit` y `\p{L}\p{N}` no coinciden. El corpus no tiene ninguno, así que no cambia ningún resultado.
+- La revisión la hizo un modelo de la misma familia que escribió el código, no una independiente. Sigue pendiente la de Codex.

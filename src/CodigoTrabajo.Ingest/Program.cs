@@ -28,9 +28,12 @@ static void Parse(string input, string output)
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     });
-    File.WriteAllText(output, json);
 
     var numbered = articles.Where(a => a.Number > 0).ToList();
+    // Un artículo con un encabezado raro haría que todo lo siguiente se pegara al anterior sin avisar.
+    if (!numbered.Select(a => a.Number).SequenceEqual(Enumerable.Range(1, 738)))
+        throw new InvalidDataException($"Se esperaban los artículos 1 a 738 seguidos y salieron {numbered.Count}; no escribo {output}.");
+    File.WriteAllText(output, json);
     Console.WriteLine($"{articles.Count - numbered.Count} principios, {numbered.Count} artículos " +
         $"(del {numbered[0].Number} al {numbered[^1].Number}), {articles.Sum(a => a.Notes.Count)} notas");
 }

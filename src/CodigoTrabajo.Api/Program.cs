@@ -4,6 +4,8 @@ using CodigoTrabajo.Core;
 using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
+// Las preguntas tienen un tope de 300 caracteres; no hace falta aceptar cuerpos de decenas de MB para comprobarlo.
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 4 * 1024);
 
 var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
 var articles = JsonSerializer.Deserialize<List<Article>>(File.ReadAllText(Path.Combine(dataDir, "articles.json")))!;
@@ -23,13 +25,25 @@ if (!string.IsNullOrWhiteSpace(geminiKey))
 }
 var retriever = new Retriever(lexical, vectors, embedder);
 
-// /api/ask cuesta cuota del modelo en cada llamada, así que se limita por IP.
+// /api/ask y /api/search (con clave, cada búsqueda embebe la pregunta) gastan cuota de Gemini, así que se limitan por IP.
+// En IPv6 se cuenta por el prefijo /64: un cliente suele tener uno entero y por dirección completa rotaría de cupo.
+static string ClientKey(System.Net.IPAddress? ip)
+{
+    if (ip is null) return "?";
+    if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+    return ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+        ? Convert.ToHexString(ip.GetAddressBytes().AsSpan(0, 8))
+        : ip.ToString();
+}
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.AddPolicy("ask", ctx => RateLimitPartition.GetFixedWindowLimiter(
-        ctx.Connection.RemoteIpAddress?.ToString() ?? "?",
+        ClientKey(ctx.Connection.RemoteIpAddress),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("RateLimit:AskPerMinute", 6), Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy("search", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientKey(ctx.Connection.RemoteIpAddress),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("RateLimit:SearchPerMinute", 30), Window = TimeSpan.FromMinutes(1) }));
 });
 
 var app = builder.Build();
@@ -49,7 +63,7 @@ api.MapGet("/search", async (string? q, CancellationToken ct) =>
     if (string.IsNullOrWhiteSpace(q) || q.Length > 300) return Results.BadRequest(new { error = "La búsqueda debe tener entre 1 y 300 caracteres." });
     var hits = await retriever.SearchAsync(q, 5, ct);
     return Results.Ok(new { mode = retriever.UsesVectors ? "vectores" : "palabras", results = hits.Select(h => Summary(h.Article)) });
-});
+}).RequireRateLimiting("search");
 
 if (chat is not null)
 {
