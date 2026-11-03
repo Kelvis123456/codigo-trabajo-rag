@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buscar en el Código de Trabajo RD</title>
+  <meta name="description" content="Busca artículos del Código de Trabajo dominicano (Ley 16-92) por palabras. Demo sin servidor y sin modelo de IA.">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f3ee; --surface: #fffdf9; --text: #1d1b18; --muted: #5f5a52;
+      --line: #d9d3c7; --accent: #1f4d3a; --accent-text: #fff; --mark: #f3e2a9;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #14130f; --surface: #1c1a16; --text: #ece8df; --muted: #a8a195; --line: #35312a; --accent: #7fc4a0; --accent-text: #10170f; --mark: #5a4b17; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, "Segoe UI", sans-serif; }
+    main { max-width: 44rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+    h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 .5rem; text-wrap: balance; }
+    p { margin: 0 0 1rem; }
+    .lead, .note { color: var(--muted); }
+    .note { font-size: .875rem; }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1.5rem 0 .5rem; }
+    label { flex-basis: 100%; font-weight: 600; font-size: .9rem; }
+    input { flex: 1 1 14rem; font: inherit; padding: .65rem .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: inherit; }
+    button { font: inherit; font-weight: 600; padding: .65rem 1.1rem; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .examples { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1.5rem; padding: 0; list-style: none; }
+    .examples button { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 400; font-size: .85rem; padding: .3rem .7rem; }
+    a { color: var(--accent); }
+    article { border-top: 1px solid var(--line); padding: .9rem 0; }
+    article h2 { font-size: .95rem; margin: 0 0 .15rem; }
+    article .ctx { color: var(--muted); font-size: .8rem; margin: 0 0 .4rem; }
+    article p:last-child { margin: 0; font-size: .95rem; }
+    mark { background: var(--mark); color: inherit; border-radius: 2px; }
+    #status { color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Buscar en el Código de Trabajo de la República Dominicana</h1>
+  <p class="lead">Escribe una pregunta o unas palabras y salen los cinco artículos de la Ley 16-92 que más se parecen. Todo corre en tu navegador: no hay servidor ni modelo de IA, así que esta demo busca por palabras y no redacta respuestas.</p>
+
+  <form id="form">
+    <label for="q">Tu búsqueda</label>
+    <input id="q" name="q" type="text" maxlength="300" required autocomplete="off" placeholder="¿Cuántos días de vacaciones me tocan después de un año?">
+    <button type="submit">Buscar</button>
+  </form>
+  <ul class="examples" aria-label="Ejemplos">
+    <li><button type="button">¿Cómo se pagan las horas extras?</button></li>
+    <li><button type="button">¿Qué es el salario de Navidad?</button></li>
+    <li><button type="button">¿Se puede despedir a una mujer embarazada?</button></li>
+  </ul>
+
+  <p id="status" role="status"></p>
+  <div id="out"></div>
+
+  <p class="note">Búsqueda por palabras (BM25): en las 21 preguntas con las que lo mido pone el artículo correcto entre los cinco primeros en 14. El proyecto completo, que busca por significado con vectores de Gemini y redacta la respuesta con citas, acierta 21 de 21 en la búsqueda; se corre en local con una clave propia. Esto resume el texto del Ministerio de Trabajo, no es asesoría legal y puede no reflejar reformas recientes. <a href="https://github.com/Kelvis123456/codigo-trabajo-rag">Código fuente</a>.</p>
+</main>
+<script type="module">
+  import { Bm25, tokens } from "./search.js";
+
+  const form = document.getElementById("form"), input = document.getElementById("q"),
+        out = document.getElementById("out"), status = document.getElementById("status");
+  let index = null;
+
+  const load = fetch("articles.json").then((r) => r.json()).then((a) => { index = new Bm25(a); status.textContent = ""; });
+  status.textContent = "Cargando el Código…";
+  load.catch(() => { status.textContent = "No se pudo cargar el texto del Código."; });
+
+  // Marca las palabras de la búsqueda comparando por raíz, igual que el buscador.
+  function highlight(text, wanted) {
+    const frag = document.createDocumentFragment();
+    for (const part of text.split(/(\s+)/)) {
+      const hit = part.trim() && tokens(part).some((t) => wanted.has(t));
+      if (hit) frag.append(Object.assign(document.createElement("mark"), { textContent: part }));
+      else frag.append(part);
+    }
+    return frag;
+  }
+
+  function card(a, wanted) {
+    const el = document.createElement("article");
+    const h = document.createElement("h2"); h.textContent = a.Label;
+    const ctx = document.createElement("p"); ctx.className = "ctx"; ctx.textContent = a.Context;
+    const body = document.createElement("div");
+    for (const para of a.Text.split("\n")) {
+      const p = document.createElement("p"); p.append(highlight(para, wanted)); body.append(p);
+    }
+    el.append(h, ctx, body);
+    return el;
+  }
+
+  async function run(q) {
+    await load;
+    const hits = index.search(q, 5);
+    const wanted = new Set(tokens(q));
+    out.replaceChildren();
+    status.textContent = hits.length ? `${hits.length} artículos` : "No hay artículos con esas palabras. Prueba con otras.";
+    hits.forEach((h) => out.append(card(h.article, wanted)));
+  }
+
+  form.addEventListener("submit", (e) => { e.preventDefault(); if (input.value.trim()) run(input.value.trim()); });
+  document.querySelectorAll(".examples button").forEach((b) =>
+    b.addEventListener("click", () => { input.value = b.textContent; run(b.textContent); }));
+</script>
+</body>
+</html>

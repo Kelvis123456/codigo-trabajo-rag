@@ -35,3 +35,5 @@ jobs:
       - run: dotnet build --no-restore -warnaserror
       # Sin GEMINI_API_KEY: la evaluación con vectores se salta sola y las respuestas se prueban con un modelo falso.
       - run: dotnet test --no-build
+      # La demo estática reimplementa BM25 en JS; este test exige las mismas listas que la versión de C#.
+      - run: node --test tests/js/search.test.mjs
